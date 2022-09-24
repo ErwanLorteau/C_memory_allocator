@@ -66,7 +66,7 @@ static mem_pool_t standard_pool_1025_and_above = {
 /* This function is automatically called upon the termination of a process. */
 void run_at_exit(void)
 {
-    fprintf(stderr, "YEAH B-)\n");
+    //fprintf(stderr, "YEAH B-)\n");
     /* You are encouraged to insert more useful code ... */
 }
 
