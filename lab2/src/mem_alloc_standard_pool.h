@@ -27,6 +27,7 @@ typedef struct mem_std_block_headerfooter
 } mem_std_block_header_footer_t;
 
 /* Structure declaration for the start of a standard free block */
+//No footer since we don't know yet the size of the payload
 typedef struct mem_std_free_block
 {
     mem_std_block_header_footer_t header;
