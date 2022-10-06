@@ -26,7 +26,7 @@ void init_standard_pool(mem_pool_t *p, size_t size, size_t min_request_size, siz
     char* region = (char*) my_mmap(size); 
 
     p->start = region;
-    p->end = region+size; 
+    p->end = region+size-1; 
 
     p->first_free = region;
 
@@ -88,6 +88,7 @@ void *mem_alloc_standard_pool(mem_pool_t *pool, size_t size) {
 
     // Split block
 
+    // Size of initial block - requested size for allocation > 32
     if ((get_block_size(&(curr_block->header)) - size) > (sizeof(mem_std_free_block_t) + sizeof(mem_std_block_header_footer_t))){
         
         size_t tmpSize = get_block_size(&(curr_block->header));
@@ -96,11 +97,12 @@ void *mem_alloc_standard_pool(mem_pool_t *pool, size_t size) {
         set_block_size(&(curr_block->header),size);
         
         // Update footer in the first block
-        set_block_free((mem_std_block_header_footer_t *)footer1Address);
+        //set_block_free((mem_std_block_header_footer_t *)footer1Address);
         set_block_size((mem_std_block_header_footer_t *)footer1Address,size);
 
         // Create a header and a footer for the newly created block
-        size_t block2size = tmpSize - size - (sizeof(mem_std_free_block_t) + sizeof(mem_std_block_header_footer_t)); 
+        // Modified
+        size_t block2size = tmpSize - (size + sizeof(mem_std_block_header_footer_t)*2); 
 
         char* header2Address = footer1Address + sizeof(mem_std_block_header_footer_t);
         set_block_size((mem_std_block_header_footer_t *)header2Address, block2size);
@@ -170,8 +172,12 @@ void merge(mem_std_block_header_footer_t* address, char neighbour){
 
             ((mem_std_free_block_t *)block_header)->next=((mem_std_free_block_t *)(address+1))->next;
             ((mem_std_free_block_t *)block_header)->prev=((mem_std_free_block_t *)(address+1))->prev;
-            ((mem_std_free_block_t *)(address+1))->next->prev = ((mem_std_free_block_t *)block_header);
-            ((mem_std_free_block_t *)(address+1))->prev->next = ((mem_std_free_block_t *)block_header);
+
+            if (((mem_std_free_block_t *)(address+1))->next != NULL)
+                ((mem_std_free_block_t *)(address+1))->next->prev = ((mem_std_free_block_t *)block_header);
+            if (((mem_std_free_block_t *)(address+1))->prev != NULL)
+                ((mem_std_free_block_t *)(address+1))->prev->next = ((mem_std_free_block_t *)block_header);
+
             break;
     }
 
