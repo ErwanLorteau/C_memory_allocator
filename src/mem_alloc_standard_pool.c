@@ -60,6 +60,7 @@ void init_standard_pool(mem_pool_t *p, size_t size, size_t min_request_size, siz
 
 void *mem_alloc_standard_pool(mem_pool_t *pool, size_t size) {
 
+    //printf("%p",pool->first_free);
     mem_std_free_block_t* curr_block = (mem_std_free_block_t *)pool->first_free;
 
     // Searching for the first fit free bloc
@@ -217,7 +218,7 @@ void mem_free_standard_pool(mem_pool_t *pool, void *addr){
             curr = curr->next;
         if (curr->next == NULL){ // Case where we can only merge with upper neighbour
             if(is_block_free(&(block_to_free->header)-1)){ // Can cause error
-                merge(&(block_to_free->header)-1,'U');
+                merge(&(block_to_free->header),'U');
             } else {
                 curr->next = block_to_free;
                 block_to_free->prev = curr;
@@ -228,14 +229,15 @@ void mem_free_standard_pool(mem_pool_t *pool, void *addr){
             if (is_block_free(footerAddress + 1) || is_block_free(&(block_to_free->header)-1)){
                 if(is_block_free(footerAddress + 1))
                     //merge with lower neighbour
-                    merge(footerAddress + 1,'L');
+                    merge(footerAddress,'L');
                 if(is_block_free(&(block_to_free->header)-1)) // Can cause error
                     //merge with upper neighbour
-                    merge(&(block_to_free->header)-1,'U');
+                    merge(&(block_to_free->header),'U');
             } else {
                 block_to_free->next = curr;
                 block_to_free->prev = curr->prev;
-                block_to_free->prev->next = block_to_free;
+                if (block_to_free->prev != NULL)
+                    block_to_free->prev->next = block_to_free;
                 curr->prev = block_to_free;                
             }
             
