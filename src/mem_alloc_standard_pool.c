@@ -64,26 +64,25 @@ void *mem_alloc_standard_pool(mem_pool_t *pool, size_t size) {
 
     // Searching for the first fit free bloc
 
-    //#if std_pool_policy == FIRST_FIT
+    if (std_pool_policy == FIRST_FIT){
+        // make sure to cover case where curr_block == NULL
+        while (curr_block != NULL  && get_block_size(&(curr_block->header)) < size)
+        curr_block = curr_block->next;
 
-    // make sure to cover case where curr_block == NULL
-    while (curr_block != NULL  && get_block_size(&(curr_block->header)) < size)
-       curr_block = curr_block->next;
+    } else if (std_pool_policy == BEST_FIT){
+        mem_std_free_block_t* curr_block = (mem_std_free_block_t *)pool->first_free;
+        mem_std_free_block_t* traversal_block = curr_block->next;
 
-    // #elif std_pool_policy == BEST_FIT
-    
-    // mem_std_free_block_t* curr_block = (mem_std_free_block_t *)pool->first_free;
-    // mem_std_free_block_t* travesal_block = curr_block->next;
-
-    // while (traversal_block != NULL) {
-    //     if (get_block_size(&traversal_block->header)-size < get_block_size(&curr_block->header)-size) && (get_block_size(&travesal_block->header) >= size){
-    //         curr_block = traversal_block;
-    //     }
-    // }
-    
-    // #else
-    // perror("Unrecognized pool policy\n");
-    // #endif
+        while (traversal_block != NULL) {
+            if ((get_block_size(&traversal_block->header)-size < get_block_size(&curr_block->header)-size) && (get_block_size(&traversal_block->header) >= size)){
+                curr_block = traversal_block;
+            }
+            traversal_block = traversal_block->next;
+        }
+    } else {
+        perror("Unrecognized pool policy\n");
+    }
+  
 
     char* footer1Address = (char *)&(curr_block->header)+sizeof(mem_std_block_header_footer_t)+size;
 
