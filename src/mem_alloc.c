@@ -236,8 +236,21 @@ size_t memory_get_allocated_block_size(void *addr)
 
 void print_mem_state(void)
 {
-    /* TO BE IMPLEMENTED */
-    printf("Please, implement me!\n");
+    char* start = mem_pools[3].start;
+    //printf("%p\n",start);
+    int size = get_block_size((mem_std_block_header_footer_t *)start);
+    //printf("%p\n", (char *)(mem_pools[3].end));
+    char* curr = start;
+    while (curr < (char *)(mem_pools[3].end)){
+        size = get_block_size((mem_std_block_header_footer_t *)curr);
+        printf("[ ");
+        if (!is_block_free((mem_std_block_header_footer_t *)curr)){
+            printf("XX ");
+        }
+        printf("%p -- %d",curr,size);
+        printf(" ]\n");
+        curr = curr + size +16;
+    }
 }
 
 void print_free_info(void *addr)
