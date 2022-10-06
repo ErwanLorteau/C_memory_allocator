@@ -10,7 +10,7 @@ void init_fast_pool(mem_pool_t *p, size_t size, size_t min_request_size, size_t 
     char* region = (char *)my_mmap(size);
 
     p->start = region;
-    p->end = region+size;
+    p->end = region+size-1;
     p->first_free = region;
 
     //printf("min: %d, max: %d\n",min_request_size, max_request_size);
