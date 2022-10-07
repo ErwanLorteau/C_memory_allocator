@@ -60,7 +60,6 @@ void init_standard_pool(mem_pool_t *p, size_t size, size_t min_request_size, siz
 
 void *mem_alloc_standard_pool(mem_pool_t *pool, size_t size) {
 
-    //printf("%p",pool->first_free);
     mem_std_free_block_t* curr_block = (mem_std_free_block_t *)pool->first_free;
 
     // Searching for the first fit free bloc
@@ -71,7 +70,6 @@ void *mem_alloc_standard_pool(mem_pool_t *pool, size_t size) {
         curr_block = curr_block->next;
 
     } else if (std_pool_policy == BEST_FIT){
-        mem_std_free_block_t* curr_block = (mem_std_free_block_t *)pool->first_free;
         mem_std_free_block_t* traversal_block = curr_block->next;
 
         while (traversal_block != NULL) {
@@ -102,7 +100,6 @@ void *mem_alloc_standard_pool(mem_pool_t *pool, size_t size) {
         set_block_size((mem_std_block_header_footer_t *)footer1Address,size);
 
         // Create a header and a footer for the newly created block
-        // Modified
         size_t block2size = tmpSize - (size + sizeof(mem_std_block_header_footer_t)*2); 
 
         char* header2Address = footer1Address + sizeof(mem_std_block_header_footer_t);
@@ -160,6 +157,11 @@ void merge(mem_std_block_header_footer_t* address, char neighbour){
 
             set_block_size(neighbour_header,neighbour_size+block_size+sizeof(mem_std_block_header_footer_t)*2);
             set_block_size(block_footer,neighbour_size+block_size+sizeof(mem_std_block_header_footer_t)*2);
+
+            ((mem_std_free_block_t *)neighbour_header)->next=((mem_std_free_block_t *)(address))->next;
+            if (((mem_std_free_block_t *)(address))->next != NULL){
+                ((mem_std_free_block_t *)(address))->next->prev = ((mem_std_free_block_t *)neighbour_header);
+            }
             break;
 
         case 'L':
@@ -196,6 +198,7 @@ void mem_free_standard_pool(mem_pool_t *pool, void *addr){
     // }
 
     set_block_free(&(block_to_free->header));
+    set_block_free(footerAddress);
     
     mem_std_free_block_t* curr = (mem_std_free_block_t *)pool->first_free;
 
@@ -214,9 +217,11 @@ void mem_free_standard_pool(mem_pool_t *pool, void *addr){
             block_to_free->prev = NULL;
         }
     } else {
+        // This part of code causes a logical error
         while (curr->next != NULL && curr < block_to_free)
             curr = curr->next;
-        if (curr->next == NULL){ // Case where we can only merge with upper neighbour
+        // Added a debugging case (&& curr < block_to_free)
+        if (curr->next == NULL && curr < block_to_free){ // Case where we can only merge with upper neighbour
             if(is_block_free(&(block_to_free->header)-1)){ // Can cause error
                 merge(&(block_to_free->header),'U');
             } else {
