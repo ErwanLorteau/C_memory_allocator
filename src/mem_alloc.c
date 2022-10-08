@@ -234,13 +234,21 @@ size_t memory_get_allocated_block_size(void *addr)
     return res;
 }
 
-void print_mem_state(void)
-{
+
+/**
+ * Print the standart pool state in the terminal
+ */
+void print_mem_state(void) {
+
+    //Starting & ending address of the pool
     char* start = mem_pools[3].start;
     printf("start: %p\n",start);
-    int size = get_block_size((mem_std_block_header_footer_t *)start);
     printf("end: %p\n", (char *)(mem_pools[3].end));
+
+    int size = get_block_size((mem_std_block_header_footer_t *)start);
     char* curr = start;
+
+    //Printing each block informations
     while (curr < (char *)(mem_pools[3].end)){
         size = get_block_size((mem_std_block_header_footer_t *)curr);
         printf("[ ");
