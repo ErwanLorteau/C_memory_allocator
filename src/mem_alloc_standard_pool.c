@@ -20,30 +20,36 @@ std_pool_placement_policy_t std_pool_policy = DEFAULT_STDPOOL_POLICY;
 
 /////////////////////////////////////////////////////////////////////////////
 
+/**
+ * Initialize the standart pool
+ * @param p a pointer to the standard pool to initialize
+ * @param size the size to allocate for the standart pool
+ * @param min_request_size the minimum size required for a block to be allocated in the standart pool
+ * @param max_request_size the maximum size required for a block to be allocated in the standart pool
+ */
+
 void init_standard_pool(mem_pool_t *p, size_t size, size_t min_request_size, size_t max_request_size) {
     
-    //Call my_mmap & set the head of the pool
-    char* region = (char*) my_mmap(size); 
-
+    //Initializing the pool
+    char* region = (char*) my_mmap(size);
     p->start = region;
-    p->end = region+size-1; 
-
+    p->end = region+size-1;
     p->first_free = region;
 
-    //Initialize the list of free blocs
+    //Initializing the list of free blocs
     mem_std_free_block_t* firstBlock = p->first_free;
 
     //Initialize the first free block
     //Header & footer setup ( same function for the two of them)
 
-    /**Header**/
+    //header
     set_block_size((mem_std_block_header_footer_t*)&(firstBlock->header), size-(sizeof(mem_std_block_header_footer_t) * 2)); //set_block_size(firstAdressOfPool + 8), size) ; //Optimized
     set_block_free((mem_std_block_header_footer_t*)&(firstBlock->header));
 
     //We don't know yet the size of the payload, except in the initialization since we know the size of the pool and there is only one block.
     //Inside the 'malloc' functiontion, we need to know the size of the payload in order to know the starting adress of the footer
     
-    /**Footer**/
+    //footer
     char* footerAddress = region+(size-sizeof(mem_std_block_header_footer_t));  //Footer is 8 bytes long*
     //mem_std_block_headerfooter_t* footerPointer = firstAdressOfPool + size -8  ;
     // = -8 * size de mem std header  ou = -8 octet
@@ -58,12 +64,17 @@ void init_standard_pool(mem_pool_t *p, size_t size, size_t min_request_size, siz
     firstBlock->prev = NULL ;
 }
 
+/**
+ * Allocate memory inside the standard pool for the user
+ * @param pool the pool where the memory is allocated
+ * @param size the size of the memory allocated
+ * @return  a pointer to the allocated block
+ */
 void *mem_alloc_standard_pool(mem_pool_t *pool, size_t size) {
 
+
+    //Itterate through the list of free bloc. Find and save the block to allocate depending on the chooser policy
     mem_std_free_block_t* curr_block = (mem_std_free_block_t *)pool->first_free;
-
-    // Searching for the first fit free bloc
-
     if (std_pool_policy == FIRST_FIT){
         // make sure to cover case where curr_block == NULL
         while (curr_block != NULL  && get_block_size(&(curr_block->header)) < size)
@@ -71,7 +82,6 @@ void *mem_alloc_standard_pool(mem_pool_t *pool, size_t size) {
 
     } else if (std_pool_policy == BEST_FIT){
         mem_std_free_block_t* traversal_block = curr_block->next;
-
         while (traversal_block != NULL) {
             if ((get_block_size(&traversal_block->header)-size < get_block_size(&curr_block->header)-size) && (get_block_size(&traversal_block->header) >= size)){
                 curr_block = traversal_block;
@@ -113,7 +123,7 @@ void *mem_alloc_standard_pool(mem_pool_t *pool, size_t size) {
         ((mem_std_free_block_t *)header2Address)->next = curr_block->next;
         ((mem_std_free_block_t *)header2Address)->prev = curr_block->prev;
 
-        //  Remove the block from the linked list
+        //Remove the choosen block from the list of free block
 
         if (curr_block->prev !=  NULL ) {
             curr_block->prev->next = (mem_std_free_block_t *)header2Address;
@@ -142,6 +152,12 @@ void *mem_alloc_standard_pool(mem_pool_t *pool, size_t size) {
     return (mem_std_allocated_block_t *)curr_block + 1;
 }
 
+
+/**
+ * Merge two blocks in a free-block list
+ * @param address :
+ * @param neighbour :
+ */
 /* function merging a block with a header or a footer address with it's (U)pper or (L)ower neighbour */
 void merge(mem_std_block_header_footer_t* address, char neighbour){
     /* This function is called after the verification of the ability to merge */
@@ -185,7 +201,11 @@ void merge(mem_std_block_header_footer_t* address, char neighbour){
     }
 
 }
-
+/**
+ * Free a block after an user request
+ * @param pool the pool where the block belong
+ * @param addr the adress of the block
+ */
 void mem_free_standard_pool(mem_pool_t *pool, void *addr){
 
     mem_std_free_block_t* block_to_free = (mem_std_free_block_t*)((mem_std_allocated_block_t *)addr-1);
