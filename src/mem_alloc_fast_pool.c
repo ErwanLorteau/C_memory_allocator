@@ -63,6 +63,13 @@ void mem_free_fast_pool(mem_pool_t *pool, void *b) {
     pool->first_free = b;
 }
 
+boolean free_only_when_allocated_guard(mem_pool_t *pool, void* block_to_free) {
+    //To check if the adress is a block, we check if this block have a valid successor
+
+    headerAdress = block_to_free
+
+}
+
 /**
  * Returns the size of a block.
  * @param pool : memory pool where the block is
