@@ -24,6 +24,10 @@ void (*o_free)(void *) = NULL;
 void *(*o_realloc)(void *, size_t) = NULL;
 void *(*o_calloc)(size_t, size_t) = NULL;
 
+/* Number of alloc/free calls */
+int nb_alloc = 0;
+int nb_free = 0;
+
 /* Array of memory pool descriptors (indexed by pool id) */
 static mem_pool_t mem_pools[NB_MEM_POOLS];
 
@@ -66,8 +70,44 @@ static mem_pool_t standard_pool_1025_and_above = {
 /* This function is automatically called upon the termination of a process. */
 void run_at_exit(void)
 {
-    //fprintf(stderr, "YEAH B-)\n");
-    /* You are encouraged to insert more useful code ... */
+    fprintf(stderr,"HEAP SUMMARY:\n");
+
+    for (int i=0; i<NB_MEM_POOLS; i++){
+        char* curr = mem_pools[i].start;
+        size_t size;
+        if (mem_pools[i].pool_type == FAST_POOL){
+                mem_fast_free_block_t* traversal_block;
+                int is_free;
+                size = mem_pools[i].max_request_size;
+                while(curr <= (char *)(mem_pools[i].end)){
+                    traversal_block = (mem_fast_free_block_t *)mem_pools[i].first_free;
+                    is_free = 0;
+                    while(traversal_block != NULL && !is_free){
+                        if ((char*)curr == (char*)traversal_block){
+                            is_free = 1;
+                        }
+                        traversal_block = traversal_block->next;
+                    }
+                    if (!is_free){
+                        fprintf(stderr,"\t\tblock at : %p has not been freed\n", curr);
+                    }
+                    curr = curr + size;
+                }
+        } else if (mem_pools[i].pool_type == STANDARD_POOL){
+                while (curr <= (char *)(mem_pools[i].end)){
+                    size = get_block_size((mem_std_block_header_footer_t *)curr);
+                    if (!is_block_free((mem_std_block_header_footer_t *)curr)){
+                        fprintf(stderr,"\t\tblock at : %p has not been freed\n", curr);
+                    }
+                    curr = curr + size + sizeof(mem_std_block_header_footer_t)*2;
+                }
+        } else {
+                /* We should never reach this case */
+                assert(0);
+            }
+        }
+
+    fprintf(stderr,"\ttotal heap usage: %d allocs, %d frees\n",nb_alloc, nb_free);
 }
 
 /* 
@@ -183,6 +223,7 @@ void *memory_alloc(size_t size)
         print_alloc_info(alloc_addr, size);
     }
     debug_printf("return %p\n", alloc_addr);
+    nb_alloc++;
     return alloc_addr;
 }
 
@@ -209,6 +250,7 @@ void memory_free(void *p)
         assert(0);
     }
     print_free_info(p);
+    nb_free++;
     debug_printf("exit\n");
 }
 
@@ -240,25 +282,49 @@ size_t memory_get_allocated_block_size(void *addr)
  */
 void print_mem_state(void) {
 
-    //Starting & ending address of the pool
-    char* start = mem_pools[3].start;
-    printf("start: %p\n",start);
-    printf("end: %p\n", (char *)(mem_pools[3].end));
+    for (int i=0; i<NB_MEM_POOLS; i++){
+        
+        char* curr = mem_pools[i].start;
 
-    int size = get_block_size((mem_std_block_header_footer_t *)start);
-    char* curr = start;
+        size_t size;
 
-    //Printing each block informations
-    while (curr < (char *)(mem_pools[3].end)){
-        size = get_block_size((mem_std_block_header_footer_t *)curr);
-        printf("[ ");
-        if (!is_block_free((mem_std_block_header_footer_t *)curr)){
-            printf("XX ");
+        if (mem_pools[i].pool_type == FAST_POOL){
+            mem_fast_free_block_t* traversal_block;
+            int is_free;
+            size = mem_pools[i].max_request_size;
+            while(curr <= (char *)(mem_pools[i].end)){
+                traversal_block = (mem_fast_free_block_t *)mem_pools[i].first_free;
+                is_free = 0;
+                printf("[ ");
+                while(traversal_block != NULL && !is_free){
+                    if ((char*)curr == (char*)traversal_block){
+                        is_free = 1;
+                    }
+                    traversal_block = traversal_block->next;
+                }
+                if (!is_free){
+                    printf("XX ");
+                }
+                printf("from: %p to: %p -- size: %ld",curr,curr+size-1,size);
+                printf(" ]\n");
+                curr = curr + size;
+            }
+        } else if (mem_pools[i].pool_type == STANDARD_POOL){
+                while (curr <= (char *)(mem_pools[i].end)){
+                    size = get_block_size((mem_std_block_header_footer_t *)curr);
+                    printf("[ ");
+                    if (!is_block_free((mem_std_block_header_footer_t *)curr)){
+                        printf("XX ");
+                    }
+                    printf("from: %p to: %p -- size: %ld",curr,curr+sizeof(mem_std_block_header_footer_t)*2+size-1,size);
+                    printf(" ]\n");
+                    curr = curr + size + sizeof(mem_std_block_header_footer_t)*2;
+                }
+        } else {
+                /* We should never reach this case */
+                assert(0);
+            }
         }
-        printf("from: %p to: %p -- size: %d",curr,curr+15+size,size);
-        printf(" ]\n");
-        curr = curr + size +16;
-    }
 }
 
 void print_free_info(void *addr)
