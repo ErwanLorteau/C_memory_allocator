@@ -1,12 +1,10 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <stdio.h>
-
 #include "mem_alloc_types.h"
 #include "mem_alloc_standard_pool.h"
 #include "my_mmap.h"
 #include "mem_alloc.h"
-
 #include <stdbool.h>
 
 /////////////////////////////////////////////////////////////////////////////
@@ -21,45 +19,34 @@ std_pool_placement_policy_t std_pool_policy = DEFAULT_STDPOOL_POLICY;
 /////////////////////////////////////////////////////////////////////////////
 
 /**
- * Initialize the standart pool
+ * Initialize the standard pool
  * @param p a pointer to the standard pool to initialize
  * @param size the size to allocate for the standart pool
- * @param min_request_size the minimum size required for a block to be allocated in the standart pool
- * @param max_request_size the maximum size required for a block to be allocated in the standart pool
+ * @param min_request_size the minimum size required for a block to be allocated in the standard pool
+ * @param max_request_size the maximum size required for a block to be allocated in the standard pool
  */
 
 void init_standard_pool(mem_pool_t *p, size_t size, size_t min_request_size, size_t max_request_size) {
     
-    //Initializing the pool
+    //Initializing the pool structure
     char* region = (char*) my_mmap(size);
     p->start = region;
     p->end = region+size-1;
     p->first_free = region;
 
-    //Initializing the list of free blocs
+    //Initializing the first free bloc
     mem_std_free_block_t* firstBlock = p->first_free;
 
-    //Initialize the first free block
-    //Header & footer setup ( same function for the two of them)
-
     //header
-    set_block_size((mem_std_block_header_footer_t*)&(firstBlock->header), size-(sizeof(mem_std_block_header_footer_t) * 2)); //set_block_size(firstAdressOfPool + 8), size) ; //Optimized
+    set_block_size((mem_std_block_header_footer_t*)&(firstBlock->header), size-(sizeof(mem_std_block_header_footer_t) * 2));
     set_block_free((mem_std_block_header_footer_t*)&(firstBlock->header));
 
-    //We don't know yet the size of the payload, except in the initialization since we know the size of the pool and there is only one block.
-    //Inside the 'malloc' functiontion, we need to know the size of the payload in order to know the starting adress of the footer
-    
     //footer
-    char* footerAddress = region+(size-sizeof(mem_std_block_header_footer_t));  //Footer is 8 bytes long*
-    //mem_std_block_headerfooter_t* footerPointer = firstAdressOfPool + size -8  ;
-    // = -8 * size de mem std header  ou = -8 octet
-    // Se renseigner sur comment fonctionne le comportement des operateur selon le type static du pointeur a droit et a gauche de l'asignement
-    //if char* is passed as parameter instead of any other type*, i'ts probably cast, '->' is an operator which compute the size of the data before the field and modify the pointer ?
-
+    char* footerAddress = region+(size-sizeof(mem_std_block_header_footer_t));  //Footer is 8 bytes long
     set_block_size((mem_std_block_header_footer_t*)footerAddress, size-(sizeof(mem_std_block_header_footer_t) * 2));
     set_block_free((mem_std_block_header_footer_t*)footerAddress);
 
-    /**List management**/
+    //Predecessor & successor
     firstBlock->next = NULL ;
     firstBlock->prev = NULL ;
 }
@@ -72,15 +59,19 @@ void init_standard_pool(mem_pool_t *p, size_t size, size_t min_request_size, siz
  */
 void *mem_alloc_standard_pool(mem_pool_t *pool, size_t size) {
 
-
-    //Itterate through the list of free bloc. Find and save the block to allocate depending on the chooser policy
     mem_std_free_block_t* curr_block = (mem_std_free_block_t *)pool->first_free;
+
+    //Itterate through the list of free bloc
+    // Find and save the block to allocate depending on the chooser policy
+
     if (std_pool_policy == FIRST_FIT){
         // make sure to cover case where curr_block == NULL
         while (curr_block != NULL  && get_block_size(&(curr_block->header)) < size)
         curr_block = curr_block->next;
 
-    } else if (std_pool_policy == BEST_FIT){
+    }
+
+    else if (std_pool_policy == BEST_FIT){
         mem_std_free_block_t* traversal_block = curr_block->next;
         while (traversal_block != NULL) {
             if ((get_block_size(&traversal_block->header)-size < get_block_size(&curr_block->header)-size) && (get_block_size(&traversal_block->header) >= size)){
@@ -88,7 +79,9 @@ void *mem_alloc_standard_pool(mem_pool_t *pool, size_t size) {
             }
             traversal_block = traversal_block->next;
         }
-    } else {
+    }
+
+    else {
         perror("Unrecognized pool policy\n");
     }
   
@@ -158,9 +151,9 @@ void *mem_alloc_standard_pool(mem_pool_t *pool, size_t size) {
  * @param address :
  * @param neighbour :
  */
-/* function merging a block with a header or a footer address with it's (U)pper or (L)ower neighbour */
 void merge(mem_std_block_header_footer_t* address, char neighbour){
-    /* This function is called after the verification of the ability to merge */
+    // This function is called after the verification of the ability to merge
+
     size_t neighbour_size, block_size;
     block_size = get_block_size(address);
 
@@ -211,18 +204,12 @@ void mem_free_standard_pool(mem_pool_t *pool, void *addr){
     mem_std_free_block_t* block_to_free = (mem_std_free_block_t*)((mem_std_allocated_block_t *)addr-1);
     size_t block_size = get_block_size(&(block_to_free->header));
     mem_std_block_header_footer_t * footerAddress = (mem_std_block_header_footer_t * )((char *)&(block_to_free->header)+sizeof(mem_std_block_header_footer_t)+block_size);
-    
-    /* Check if block is allocated */
-    // if (is_block_free(&(free_block->header))){
-    //     perror("Block is already free");
-    // }
-
     set_block_free(&(block_to_free->header));
     set_block_free(footerAddress);
-    
     mem_std_free_block_t* curr = (mem_std_free_block_t *)pool->first_free;
 
-    if (curr == NULL || curr > block_to_free){ // Case where we can only merge with lower neighbour
+    // Case where we can only merge with lower neighbour
+    if (curr == NULL || curr > block_to_free){
         pool->first_free = (mem_std_free_block_t *)&(block_to_free->header);
         if(curr != NULL){
             if(is_block_free(footerAddress + 1)){
