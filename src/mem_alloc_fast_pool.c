@@ -43,8 +43,10 @@ void *mem_alloc_fast_pool(mem_pool_t *pool, size_t size) {
 
     /* Updating the list of free block */
     void* result = pool->first_free;
-    mem_fast_free_block_t*  next = ((mem_fast_free_block_t *)pool->first_free)->next;
-    pool->first_free = (void *)next;
+    if (result != NULL){
+        mem_fast_free_block_t*  next = ((mem_fast_free_block_t *)pool->first_free)->next;
+        pool->first_free = (void *)next;
+    }
 
     return result;
 }

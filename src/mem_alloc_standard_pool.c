@@ -62,6 +62,10 @@ void *mem_alloc_standard_pool(mem_pool_t *pool, size_t size) {
 
     mem_std_free_block_t* curr_block = (mem_std_free_block_t *)pool->first_free;
 
+    if (curr_block == NULL){
+        return NULL;
+    }
+
     /* Iterate over the linked list of free blocks
     Depending on search policy, find and save the address of the block to allocate in curr_block */
 
@@ -79,10 +83,15 @@ void *mem_alloc_standard_pool(mem_pool_t *pool, size_t size) {
             }
             traversal_block = traversal_block->next;
         }
+        if (get_block_size(&curr_block->header) < size){
+            return NULL;
+        }
     } else {
         perror("Unrecognized pool policy\n");
+        assert(0);
     }
-  
+
+
 
     char* footer1Address = (char *)&(curr_block->header)+sizeof(mem_std_block_header_footer_t)+size;
 
