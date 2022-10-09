@@ -53,6 +53,49 @@ void init_standard_pool(mem_pool_t *p, size_t size, size_t min_request_size, siz
 }
 
 /**
+ * Splits a block curr_block if possible
+ * @param pool : memory pool
+ * @param curr_block : pointer of the block to split
+ * @param footer1Address : address of block 1 footer
+ * @param initialSize : initial size of the payload of curr_block before the split
+ * @param size : size to allocate
+ */
+void split(mem_pool_t* pool, mem_std_free_block_t* curr_block, size_t initialSize, size_t size){
+        
+        /* Update header in the first block */
+        set_block_size(&((curr_block)->header),size);
+        
+        /* Update footer in the first block */
+        char* footer1Address = (char *)&((curr_block)->header)+sizeof(mem_std_block_header_footer_t)+size;        
+        set_block_size((mem_std_block_header_footer_t *)footer1Address,size);
+
+        /* Create a header and a footer for the newly created block */
+        size_t block2size = initialSize - (size + sizeof(mem_std_block_header_footer_t)*2); 
+
+        char* header2Address = footer1Address + sizeof(mem_std_block_header_footer_t);
+        set_block_size((mem_std_block_header_footer_t *)header2Address, block2size);
+        set_block_free((mem_std_block_header_footer_t *)header2Address);
+
+        char* footer2Address = header2Address + sizeof(mem_std_block_header_footer_t) + block2size;
+        set_block_size((mem_std_block_header_footer_t *)footer2Address, block2size); 
+        set_block_free((mem_std_block_header_footer_t *)footer2Address);
+
+        /* Initialize the next and prev pointers for the new block and remove the to-be allocated block from the linked list */
+        
+        ((mem_std_free_block_t *)header2Address)->next = (curr_block)->next;
+        ((mem_std_free_block_t *)header2Address)->prev = (curr_block)->prev;
+
+        if ((curr_block)->prev !=  NULL ) {
+            (curr_block)->prev->next = (mem_std_free_block_t *)header2Address;
+        } else {
+            pool->first_free = (mem_std_free_block_t *)header2Address;
+        }
+        if ((curr_block)->next != NULL) {
+            (curr_block)->next->prev = (mem_std_free_block_t *)header2Address;
+        }
+}
+
+/**
  * Allocate memory inside the standard pool for the user
  * @param pool : pool where the memory is allocated
  * @param size : size of the memory allocated
@@ -90,54 +133,18 @@ void *mem_alloc_standard_pool(mem_pool_t *pool, size_t size) {
         }
     } else {
         perror("Unrecognized pool policy\n");
-        assert(0);
+        exit(1);
     }
 
-
-
-    char* footer1Address;
-    size_t tmpSize = get_block_size(&(curr_block->header));
+    size_t initialSize = get_block_size(&(curr_block->header));
 
     /* Split block */
     /* Size of initial block - requested size for allocation >= 32 */
-    if ((tmpSize - size) >= (sizeof(mem_std_free_block_t) + sizeof(mem_std_block_header_footer_t))){
+    if ((initialSize - size) >= (sizeof(mem_std_free_block_t) + sizeof(mem_std_block_header_footer_t))){
         
-        footer1Address = (char *)&(curr_block->header)+sizeof(mem_std_block_header_footer_t)+size;
-        
-        /* Update header in the first block */
-        set_block_size(&(curr_block->header),size);
-        
-        /* Update footer in the first block */
-        set_block_size((mem_std_block_header_footer_t *)footer1Address,size);
+        split(pool, curr_block, initialSize, size);
 
-        /* Create a header and a footer for the newly created block */
-        size_t block2size = tmpSize - (size + sizeof(mem_std_block_header_footer_t)*2); 
-
-        char* header2Address = footer1Address + sizeof(mem_std_block_header_footer_t);
-        set_block_size((mem_std_block_header_footer_t *)header2Address, block2size);
-        set_block_free((mem_std_block_header_footer_t *)header2Address);
-
-        char* footer2Address = header2Address + sizeof(mem_std_block_header_footer_t) + block2size;
-        set_block_size((mem_std_block_header_footer_t *)footer2Address, block2size); 
-        set_block_free((mem_std_block_header_footer_t *)footer2Address);
-
-        /* Initializa the next and prev pointers for the new block and remove the to-be allocated block from the linked list */
-        
-        ((mem_std_free_block_t *)header2Address)->next = curr_block->next;
-        ((mem_std_free_block_t *)header2Address)->prev = curr_block->prev;
-
-        if (curr_block->prev !=  NULL ) {
-            curr_block->prev->next = (mem_std_free_block_t *)header2Address;
-        } else {
-            pool->first_free = (mem_std_free_block_t *)header2Address;
-        }
-        if (curr_block->next != NULL) {
-            curr_block->next->prev = (mem_std_free_block_t *)header2Address;
-        }
-
-    } else { // Do not split // To be fixed with issue #11
-
-        footer1Address = (char *)&(curr_block->header)+sizeof(mem_std_block_header_footer_t)+tmpSize;
+    } else { // Do not split
 
         if (curr_block->prev !=  NULL ) {
             curr_block->prev->next = curr_block->next;
@@ -149,8 +156,11 @@ void *mem_alloc_standard_pool(mem_pool_t *pool, size_t size) {
         }
     }
 
-    set_block_used((mem_std_block_header_footer_t *)footer1Address);
+    char* footerAddress = (char *)&(curr_block->header)+sizeof(mem_std_block_header_footer_t)+get_block_size(&(curr_block->header));
+
     set_block_used(&(curr_block->header));
+    set_block_used((mem_std_block_header_footer_t *)footerAddress);
+
 
     return (mem_std_allocated_block_t *)curr_block + 1;
 }
