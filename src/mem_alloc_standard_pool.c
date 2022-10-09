@@ -154,52 +154,60 @@ void merge(mem_std_block_header_footer_t* address, char neighbour){
     block_size = get_block_size(address);
 
     switch (neighbour){
-        case 'U':
-            
+        case 'U': {
+
             /* Case where the merge is with neighbour with a smaller address (upper neighbour);
             The newly created block will contain a header which is the neighbour's block header, and a footer which is the to-be freed block's footer 
             The size of the new block (after merge) is the sum of the sizes of the to-be freed block, the neighbour block, the to-be freed block's header and neighbour's footer
             */
 
-            mem_std_block_header_footer_t *neighbour_header, *block_footer;
-            neighbour_size = get_block_size(address-1); // Get the block size from the neighbour's footer
-            neighbour_header = (mem_std_block_header_footer_t*)((char*)(address-1)-neighbour_size-sizeof(mem_std_block_header_footer_t));
-            block_footer = (mem_std_block_header_footer_t*)((char*)(address)+sizeof(mem_std_block_header_footer_t)+block_size);
+            mem_std_block_header_footer_t *neighbour_header;
+            mem_std_block_header_footer_t *block_footer;
+            neighbour_size = get_block_size(address - 1); // Get the block size from the neighbour's footer
+            neighbour_header = (mem_std_block_header_footer_t *) ((char *) (address - 1) - neighbour_size -
+                                                                  sizeof(mem_std_block_header_footer_t));
+            block_footer = (mem_std_block_header_footer_t *) ((char *) (address) +
+                                                              sizeof(mem_std_block_header_footer_t) + block_size);
 
-            set_block_size(neighbour_header,neighbour_size+block_size+sizeof(mem_std_block_header_footer_t)*2); // Size of header = size of footer = 8 bytes
-            set_block_size(block_footer,neighbour_size+block_size+sizeof(mem_std_block_header_footer_t)*2);
+            set_block_size(neighbour_header, neighbour_size + block_size + sizeof(mem_std_block_header_footer_t) *
+                                                                           2); // Size of header = size of footer = 8 bytes
+            set_block_size(block_footer, neighbour_size + block_size + sizeof(mem_std_block_header_footer_t) * 2);
 
-            ((mem_std_free_block_t *)neighbour_header)->next=((mem_std_free_block_t *)(address))->next;
+            ((mem_std_free_block_t *) neighbour_header)->next = ((mem_std_free_block_t *) (address))->next;
 
-            if (((mem_std_free_block_t *)(address))->next != NULL){
-                ((mem_std_free_block_t *)(address))->next->prev = ((mem_std_free_block_t *)neighbour_header);
+            if (((mem_std_free_block_t *) (address))->next != NULL) {
+                ((mem_std_free_block_t *) (address))->next->prev = ((mem_std_free_block_t *) neighbour_header);
             }
-            
-            break;
 
-        case 'L':
-            
+            break;
+        }
+        case 'L': {
+
             /* Case where the merge is with neighbour with a larger address (lower neighbour) 
             The header of the newly created block will contain a the header of the to-be freed block as its header and the neighbour's footer as its footer 
             The size of the new block is the sum of sizes of the to-be freed block, the neighbour block, the to-be freed block's footer and the neighbour's header */
-            
+
             mem_std_block_header_footer_t *neighbour_footer, *block_header;
-            neighbour_size = get_block_size(address+1); // Get the block size from the neighbour's header
-            neighbour_footer = (mem_std_block_header_footer_t*)((char*)(address+1)+sizeof(mem_std_block_header_footer_t)+neighbour_size);
-            block_header = (mem_std_block_header_footer_t*)((char*)(address)-block_size-sizeof(mem_std_block_header_footer_t));
+            neighbour_size = get_block_size(address + 1); // Get the block size from the neighbour's header
+            neighbour_footer = (mem_std_block_header_footer_t *) ((char *) (address + 1) +
+                                                                  sizeof(mem_std_block_header_footer_t) +
+                                                                  neighbour_size);
+            block_header = (mem_std_block_header_footer_t *) ((char *) (address) - block_size -
+                                                              sizeof(mem_std_block_header_footer_t));
 
-            set_block_size(block_header,neighbour_size+block_size+sizeof(mem_std_block_header_footer_t)*2);
-            set_block_size(neighbour_footer,neighbour_size+block_size+sizeof(mem_std_block_header_footer_t)*2);
+            set_block_size(block_header, neighbour_size + block_size + sizeof(mem_std_block_header_footer_t) * 2);
+            set_block_size(neighbour_footer, neighbour_size + block_size + sizeof(mem_std_block_header_footer_t) * 2);
 
-            ((mem_std_free_block_t *)block_header)->next=((mem_std_free_block_t *)(address+1))->next;
-            ((mem_std_free_block_t *)block_header)->prev=((mem_std_free_block_t *)(address+1))->prev;
+            ((mem_std_free_block_t *) block_header)->next = ((mem_std_free_block_t *) (address + 1))->next;
+            ((mem_std_free_block_t *) block_header)->prev = ((mem_std_free_block_t *) (address + 1))->prev;
 
-            if (((mem_std_free_block_t *)(address+1))->next != NULL)
-                ((mem_std_free_block_t *)(address+1))->next->prev = ((mem_std_free_block_t *)block_header);
-            if (((mem_std_free_block_t *)(address+1))->prev != NULL)
-                ((mem_std_free_block_t *)(address+1))->prev->next = ((mem_std_free_block_t *)block_header);
+            if (((mem_std_free_block_t *) (address + 1))->next != NULL)
+                ((mem_std_free_block_t *) (address + 1))->next->prev = ((mem_std_free_block_t *) block_header);
+            if (((mem_std_free_block_t *) (address + 1))->prev != NULL)
+                ((mem_std_free_block_t *) (address + 1))->prev->next = ((mem_std_free_block_t *) block_header);
 
             break;
+        }
     }
 
 }

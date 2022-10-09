@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <assert.h>
 #include <dlfcn.h>
+#include <stdbool.h>
 
 #include "mem_alloc.h"
 #include "mem_alloc_types.h"
@@ -26,6 +27,7 @@ void *(*o_calloc)(size_t, size_t) = NULL;
 
 /* Array of memory pool descriptors (indexed by pool id) */
 static mem_pool_t mem_pools[NB_MEM_POOLS];
+
 
 /* Note: the other fields will be setup by the init procedure */
 static mem_pool_t fast_pool_1_64 = {
@@ -63,12 +65,47 @@ static mem_pool_t standard_pool_1025_and_above = {
     .max_request_size = SIZE_MAX,
     .pool_type = STANDARD_POOL};
 
-/* This function is automatically called upon the termination of a process. */
-void run_at_exit(void)
-{
-    //fprintf(stderr, "YEAH B-)\n");
-    /* You are encouraged to insert more useful code ... */
+
+/**
+ * to execute before quiting, to make sure every block has been freed in the fast pools
+ * @param pool the pool to check
+ * @return true if the full doesn't contain any allocated block
+ */
+bool fast_pool_is_empty(mem_pool_t pool) {
+    int number_of_free_block = 0 ;
+    mem_fast_free_block_t* current = pool.first_free ;
+
+    while (current != NULL) {
+        number_of_free_block++ ;
+        current = current->next ;
+    }
+    return (number_of_free_block == pool.pool_size / pool.max_request_size ) ;
 }
+
+/* This function is automatically called upon the termination of a process. */
+void run_at_exit(void) {
+    if ( fast_pool_is_empty(mem_pools[0]) ) {
+        printf("First fast pool....... OK \n") ;
+    } else {
+        printf("First fast poool...... NOT OK  : Some block haven't been freed in the first fast pool. \n") ;
+    }
+
+    if ( fast_pool_is_empty(mem_pools[1]) ) {
+        printf("Second fast pool....... OK \n") ;
+    } else {
+        printf("Second fast poool...... NOT OK  : Some block haven't been freed in the second fast pool. \n") ;
+    }
+
+
+    if ( fast_pool_is_empty(mem_pools[2]) ) {
+        printf("Third fast pool....... OK \n") ;
+    } else {
+        printf("Third fast poool...... NOT OK  : Some block haven't been freed in the third fast Pool. \n") ;
+    }
+}
+
+
+
 
 /* 
  * Returns the id of the pool in charge of a given block size.
@@ -238,7 +275,8 @@ size_t memory_get_allocated_block_size(void *addr)
 /**
  * Print the standart pool state in the terminal
  */
-void print_mem_state(void) {
+
+void print_standart_pool(void) {
 
     //Starting & ending address of the pool
     char* start = mem_pools[3].start;
@@ -259,6 +297,40 @@ void print_mem_state(void) {
         printf(" ]\n");
         curr = curr + size +16;
     }
+}
+
+/**
+ * print fast pools
+ */
+
+void print_fast_pool(void) {
+    for (int  i = 0 ; i < 3 ; i ++) {
+        char *start = mem_pools[i].start;
+        printf("Pool n° %d", i);
+        printf("Start: %p\n", start);
+        printf("End: %p\n", (char *) (mem_pools[i].end));
+
+        //Initializing traversal block
+        int size = get_block_size((mem_std_block_header_footer_t *) start);
+        char *current = start;
+
+        //Printing
+        size = mem_pools[i].max_request_size ;
+        while (current < (char *) (mem_pools[i].end)) {
+            printf("[ ");
+            printf("from: %p to: %p -- size: %d", current, current + size, size);
+            printf(" ]\n");
+            current = current + size ;
+        }
+    }
+}
+
+/**
+ * print standart pool
+ */
+void print_mem_state(void) {
+    print_fast_pool() ;
+    print_standart_pool() ;
 }
 
 void print_free_info(void *addr)

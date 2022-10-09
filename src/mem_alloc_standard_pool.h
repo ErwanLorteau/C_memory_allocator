@@ -20,6 +20,7 @@ typedef enum
 
 /////////////////////////////////////////////////////////////////////////////
 
+
 /* Structure declaration for the header or footer of a standard block */
 typedef struct mem_std_block_headerfooter
 {
