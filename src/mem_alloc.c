@@ -82,28 +82,41 @@ bool fast_pool_is_empty(mem_pool_t pool) {
     return (number_of_free_block == pool.pool_size / pool.max_request_size ) ;
 }
 
-/* This function is automatically called upon the termination of a process. */
-void run_at_exit(void) {
+bool standard_pool_is_empty(mem_pool_t pool) {
+    return ( number_of_allocated_block_std_pool  == 0 ) ;//EVery time an alloc is made in the std pool, we increment a counter, everytime a block is freed, we decrement is
+}
+
+void safety_check_empty_pools_before_quitting() {
     if ( fast_pool_is_empty(mem_pools[0]) ) {
         printf("First fast pool....... OK \n") ;
     } else {
-        printf("First fast poool...... NOT OK  : Some block haven't been freed in the first fast pool. \n") ;
+        printf("First fast pool...... NOT OK  : Some block haven't been freed in the first fast pool. \n") ;
     }
 
     if ( fast_pool_is_empty(mem_pools[1]) ) {
         printf("Second fast pool....... OK \n") ;
     } else {
-        printf("Second fast poool...... NOT OK  : Some block haven't been freed in the second fast pool. \n") ;
+        printf("Second fast pool...... NOT OK  : Some block haven't been freed in the second fast pool. \n") ;
     }
-
 
     if ( fast_pool_is_empty(mem_pools[2]) ) {
         printf("Third fast pool....... OK \n") ;
     } else {
-        printf("Third fast poool...... NOT OK  : Some block haven't been freed in the third fast Pool. \n") ;
+        printf("Third fast pool...... NOT OK  : Some block haven't been freed in the third fast Pool. \n") ;
+    }
+
+    if ( standard_pool_is_empty(mem_pools[3]) ) {
+       printf( "Standard pool....... OK \n")  ;
+    } else {
+        printf("Standard pool...... NOT OK  : Some block haven't been freed in the standard Pool. \n") ;
     }
 }
 
+
+/* This function is automatically called upon the termination of a process. */
+    void run_at_exit(void) {
+        safety_check_empty_pools_before_quitting() ;
+    }
 
 
 

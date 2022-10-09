@@ -27,19 +27,20 @@ std_pool_placement_policy_t std_pool_policy = DEFAULT_STDPOOL_POLICY;
  */
 
 void init_standard_pool(mem_pool_t *p, size_t size, size_t min_request_size, size_t max_request_size) {
-    
+
     /* Initializing the pool structure */
     char* region = (char*) my_mmap(size);
     p->start = region;
     p->end = region+size-1; // Largest memory address in the region
     p->first_free = region;
+    number_of_allocated_block_std_pool = 0 ;
 
     /* Intializating the first free block */
     mem_std_free_block_t* firstBlock = p->first_free;
 
     /* Header initialization */
     /* Block size is the size of the allocated region using minus the size of header and the footer (Both equal = 8 bytes long) */
-    set_block_size((mem_std_block_header_footer_t*)&(firstBlock->header), size-(sizeof(mem_std_block_header_footer_t) * 2)); 
+    set_block_size((mem_std_block_header_footer_t*)&(firstBlock->header), size-(sizeof(mem_std_block_header_footer_t) * 2));
     set_block_free((mem_std_block_header_footer_t*)&(firstBlock->header));
 
     /* Footer initialization */
@@ -82,35 +83,35 @@ void *mem_alloc_standard_pool(mem_pool_t *pool, size_t size) {
     } else {
         perror("Unrecognized pool policy\n");
     }
-  
+
 
     char* footer1Address = (char *)&(curr_block->header)+sizeof(mem_std_block_header_footer_t)+size;
 
     /* Split block */
     /* Size of initial block - requested size for allocation >= 32 */
     if ((get_block_size(&(curr_block->header)) - size) >= (sizeof(mem_std_free_block_t) + sizeof(mem_std_block_header_footer_t))){
-        
+
         size_t tmpSize = get_block_size(&(curr_block->header));
 
         /* Update header in the first block */
         set_block_size(&(curr_block->header),size);
-        
+
         /* Update footer in the first block */
         set_block_size((mem_std_block_header_footer_t *)footer1Address,size);
 
         /* Create a header and a footer for the newly created block */
-        size_t block2size = tmpSize - (size + sizeof(mem_std_block_header_footer_t)*2); 
+        size_t block2size = tmpSize - (size + sizeof(mem_std_block_header_footer_t)*2);
 
         char* header2Address = footer1Address + sizeof(mem_std_block_header_footer_t);
         set_block_size((mem_std_block_header_footer_t *)header2Address, block2size);
         set_block_free((mem_std_block_header_footer_t *)header2Address);
 
         char* footer2Address = header2Address + sizeof(mem_std_block_header_footer_t) + block2size;
-        set_block_size((mem_std_block_header_footer_t *)footer2Address, block2size); 
+        set_block_size((mem_std_block_header_footer_t *)footer2Address, block2size);
         set_block_free((mem_std_block_header_footer_t *)footer2Address);
 
         /* Initializa the next and prev pointers for the new block and remove the to-be allocated block from the linked list */
-        
+
         ((mem_std_free_block_t *)header2Address)->next = curr_block->next;
         ((mem_std_free_block_t *)header2Address)->prev = curr_block->prev;
 
@@ -138,6 +139,7 @@ void *mem_alloc_standard_pool(mem_pool_t *pool, size_t size) {
     set_block_used((mem_std_block_header_footer_t *)footer1Address);
     set_block_used(&(curr_block->header));
 
+    number_of_allocated_block_std_pool++ ;
     return (mem_std_allocated_block_t *)curr_block + 1;
 }
 
@@ -157,7 +159,7 @@ void merge(mem_std_block_header_footer_t* address, char neighbour){
         case 'U': {
 
             /* Case where the merge is with neighbour with a smaller address (upper neighbour);
-            The newly created block will contain a header which is the neighbour's block header, and a footer which is the to-be freed block's footer 
+            The newly created block will contain a header which is the neighbour's block header, and a footer which is the to-be freed block's footer
             The size of the new block (after merge) is the sum of the sizes of the to-be freed block, the neighbour block, the to-be freed block's header and neighbour's footer
             */
 
@@ -183,8 +185,8 @@ void merge(mem_std_block_header_footer_t* address, char neighbour){
         }
         case 'L': {
 
-            /* Case where the merge is with neighbour with a larger address (lower neighbour) 
-            The header of the newly created block will contain a the header of the to-be freed block as its header and the neighbour's footer as its footer 
+            /* Case where the merge is with neighbour with a larger address (lower neighbour)
+            The header of the newly created block will contain a the header of the to-be freed block as its header and the neighbour's footer as its footer
             The size of the new block is the sum of sizes of the to-be freed block, the neighbour block, the to-be freed block's footer and the neighbour's header */
 
             mem_std_block_header_footer_t *neighbour_footer, *block_header;
@@ -218,6 +220,8 @@ void merge(mem_std_block_header_footer_t* address, char neighbour){
  */
 void mem_free_standard_pool(mem_pool_t *pool, void *addr){
 
+    /**Sould be guarded**/
+    number_of_allocated_block_std_pool-- ;
     mem_std_free_block_t* block_to_free = (mem_std_free_block_t*)((mem_std_allocated_block_t *)addr-1); // Find the address of the header from the payload address
     size_t block_size = get_block_size(&(block_to_free->header));
     mem_std_block_header_footer_t * footerAddress = (mem_std_block_header_footer_t * )((char *)&(block_to_free->header)+sizeof(mem_std_block_header_footer_t)+block_size);

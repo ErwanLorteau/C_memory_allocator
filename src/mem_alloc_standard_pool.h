@@ -42,6 +42,8 @@ typedef struct mem_std_allocated_block
     mem_std_block_header_footer_t header;
 } mem_std_allocated_block_t;
 
+int number_of_allocated_block_std_pool  ;
+
 /////////////////////////////////////////////////////////////////////////////
 
 /* Functions for the management of a standard pool */
