@@ -18,6 +18,8 @@
 
 #define ULONG(x) ((long unsigned int)(x))
 
+#define MAX_ALLOC 500
+
 /* Pointers to the original malloc functions */
 void *(*o_malloc)(size_t) = NULL;
 void (*o_free)(void *) = NULL;
@@ -27,6 +29,9 @@ void *(*o_calloc)(size_t, size_t) = NULL;
 /* Number of alloc/free calls */
 int nb_alloc = 0;
 int nb_free = 0;
+
+/* Array containing addresses of allocated blocks */
+void* allocated_blocks[MAX_ALLOC];
 
 /* Array of memory pool descriptors (indexed by pool id) */
 static mem_pool_t mem_pools[NB_MEM_POOLS];
@@ -71,42 +76,9 @@ static mem_pool_t standard_pool_1025_and_above = {
 void run_at_exit(void)
 {
     fprintf(stderr,"HEAP SUMMARY:\n");
-
-    for (int i=0; i<NB_MEM_POOLS; i++){
-        char* curr = mem_pools[i].start;
-        size_t size;
-        if (mem_pools[i].pool_type == FAST_POOL){
-                mem_fast_free_block_t* traversal_block;
-                int is_free;
-                size = mem_pools[i].max_request_size;
-                while(curr <= (char *)(mem_pools[i].end)){
-                    traversal_block = (mem_fast_free_block_t *)mem_pools[i].first_free;
-                    is_free = 0;
-                    while(traversal_block != NULL && !is_free){
-                        if ((char*)curr == (char*)traversal_block){
-                            is_free = 1;
-                        }
-                        traversal_block = traversal_block->next;
-                    }
-                    if (!is_free){
-                        fprintf(stderr,"\t\tblock at : %p has not been freed\n", curr);
-                    }
-                    curr = curr + size;
-                }
-        } else if (mem_pools[i].pool_type == STANDARD_POOL){
-                while (curr <= (char *)(mem_pools[i].end)){
-                    size = get_block_size((mem_std_block_header_footer_t *)curr);
-                    if (!is_block_free((mem_std_block_header_footer_t *)curr)){
-                        fprintf(stderr,"\t\tblock at : %p has not been freed\n", curr);
-                    }
-                    curr = curr + size + sizeof(mem_std_block_header_footer_t)*2;
-                }
-        } else {
-                /* We should never reach this case */
-                assert(0);
-            }
-        }
-
+    for(int i=0; i<nb_alloc-nb_free; i++){
+        fprintf(stderr,"\t\tblock at : %p has not been freed\n", allocated_blocks[i]);
+    }
     fprintf(stderr,"\ttotal heap usage: %d allocs, %d frees\n",nb_alloc, nb_free);
 }
 
@@ -223,8 +195,41 @@ void *memory_alloc(size_t size)
         print_alloc_info(alloc_addr, size);
     }
     debug_printf("return %p\n", alloc_addr);
+
+    if (nb_alloc-nb_free == MAX_ALLOC){
+        print_alloc_error(size);
+        exit(0);
+    }
+    allocated_blocks[nb_alloc-nb_free] = alloc_addr;
+
     nb_alloc++;
+
     return alloc_addr;
+}
+
+/*
+ * Pointer's index if it refers to an allocated block
+ */
+int is_allocated(void *p){
+
+    for(int i=0; i<nb_alloc-nb_free; i++){
+        if (allocated_blocks[i]==p){
+            return i;
+        }
+    }
+    return -1;
+}
+
+/* 
+ * Removes the address at index from the allocated_blocks list
+ */
+void pop_allocated(int index){
+
+    if (index+1 < nb_alloc-nb_free){
+        for(int i=index+1; i<nb_alloc-nb_free; i++){
+            allocated_blocks[i-1] = allocated_blocks[i];
+        }
+    }
 }
 
 /* 
@@ -233,6 +238,18 @@ void *memory_alloc(size_t size)
  */
 void memory_free(void *p)
 {
+    if (p == NULL){
+        fprintf(stderr,"Cannot free the block at NULL\n");
+        exit(1);
+    }    
+    int index = is_allocated(p);
+    if (index == -1) {
+        fprintf(stderr,"Cannot free the block at %p\n",p);
+        exit(1);
+    }
+
+    pop_allocated(index);
+
     int i;
 
     debug_printf("enter p = %p\n", p);
