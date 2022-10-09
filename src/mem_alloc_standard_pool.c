@@ -73,7 +73,9 @@ void *mem_alloc_standard_pool(mem_pool_t *pool, size_t size) {
         /* Find the first free block that fits */
         while (curr_block != NULL  && get_block_size(&(curr_block->header)) < size)
             curr_block = curr_block->next;
-
+        if (curr_block == NULL){
+            return NULL;
+        }
     } else if (std_pool_policy == BEST_FIT){
         /* Find the block with the least internal fragmentation */
         mem_std_free_block_t* traversal_block = curr_block->next;
@@ -83,7 +85,7 @@ void *mem_alloc_standard_pool(mem_pool_t *pool, size_t size) {
             }
             traversal_block = traversal_block->next;
         }
-        if (get_block_size(&curr_block->header) < size){
+        if (get_block_size(&curr_block->header) < size ){
             return NULL;
         }
     } else {
@@ -93,14 +95,15 @@ void *mem_alloc_standard_pool(mem_pool_t *pool, size_t size) {
 
 
 
-    char* footer1Address = (char *)&(curr_block->header)+sizeof(mem_std_block_header_footer_t)+size;
+    char* footer1Address;
+    size_t tmpSize = get_block_size(&(curr_block->header));
 
     /* Split block */
     /* Size of initial block - requested size for allocation >= 32 */
-    if ((get_block_size(&(curr_block->header)) - size) >= (sizeof(mem_std_free_block_t) + sizeof(mem_std_block_header_footer_t))){
+    if ((tmpSize - size) >= (sizeof(mem_std_free_block_t) + sizeof(mem_std_block_header_footer_t))){
         
-        size_t tmpSize = get_block_size(&(curr_block->header));
-
+        footer1Address = (char *)&(curr_block->header)+sizeof(mem_std_block_header_footer_t)+size;
+        
         /* Update header in the first block */
         set_block_size(&(curr_block->header),size);
         
@@ -133,6 +136,8 @@ void *mem_alloc_standard_pool(mem_pool_t *pool, size_t size) {
         }
 
     } else { // Do not split // To be fixed with issue #11
+
+        footer1Address = (char *)&(curr_block->header)+sizeof(mem_std_block_header_footer_t)+tmpSize;
 
         if (curr_block->prev !=  NULL ) {
             curr_block->prev->next = curr_block->next;
