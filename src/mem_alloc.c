@@ -26,13 +26,6 @@ void (*o_free)(void *) = NULL;
 void *(*o_realloc)(void *, size_t) = NULL;
 void *(*o_calloc)(size_t, size_t) = NULL;
 
-/* Number of alloc/free calls */
-int nb_alloc = 0;
-int nb_free = 0;
-
-/* Array containing addresses of allocated blocks */
-void* allocated_blocks[MAX_ALLOC];
-
 /* Array of memory pool descriptors (indexed by pool id) */
 static mem_pool_t mem_pools[NB_MEM_POOLS];
 
@@ -75,11 +68,7 @@ static mem_pool_t standard_pool_1025_and_above = {
 /* This function is automatically called upon the termination of a process. */
 void run_at_exit(void)
 {
-    fprintf(stderr,"HEAP SUMMARY:\n");
-    for(int i=0; i<nb_alloc-nb_free; i++){
-        fprintf(stderr,"\t\tblock at : %p has not been freed\n", allocated_blocks[i]);
-    }
-    fprintf(stderr,"\ttotal heap usage: %d allocs, %d frees\n",nb_alloc, nb_free);
+    /* Does nothing in this version of the code */
 }
 
 /* 
@@ -196,41 +185,9 @@ void *memory_alloc(size_t size)
     }
     debug_printf("return %p\n", alloc_addr);
 
-    if (nb_alloc-nb_free == MAX_ALLOC){
-        print_alloc_error(size);
-        exit(0);
-    }
-    allocated_blocks[nb_alloc-nb_free] = alloc_addr;
-
-    nb_alloc++;
-
     return alloc_addr;
 }
 
-/*
- * Pointer's index if it refers to an allocated block
- */
-int is_allocated(void *p){
-
-    for(int i=0; i<nb_alloc-nb_free; i++){
-        if (allocated_blocks[i]==p){
-            return i;
-        }
-    }
-    return -1;
-}
-
-/* 
- * Removes the address at index from the allocated_blocks list
- */
-void pop_allocated(int index){
-
-    if (index+1 < nb_alloc-nb_free){
-        for(int i=index+1; i<nb_alloc-nb_free; i++){
-            allocated_blocks[i-1] = allocated_blocks[i];
-        }
-    }
-}
 
 /* 
  * Entry point for deallocation requests.
@@ -238,18 +195,6 @@ void pop_allocated(int index){
  */
 void memory_free(void *p)
 {
-    if (p == NULL){
-        fprintf(stderr,"Cannot free the block at NULL\n");
-        exit(1);
-    }    
-    int index = is_allocated(p);
-    if (index == -1) {
-        fprintf(stderr,"Cannot free the block at %p\n",p);
-        exit(1);
-    }
-
-    pop_allocated(index);
-
     int i;
 
     debug_printf("enter p = %p\n", p);
@@ -267,7 +212,7 @@ void memory_free(void *p)
         assert(0);
     }
     print_free_info(p);
-    nb_free++;
+
     debug_printf("exit\n");
 }
 
