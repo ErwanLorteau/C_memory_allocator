@@ -295,7 +295,5 @@ void mem_free_standard_pool(mem_pool_t *pool, void *addr){
 
 size_t mem_get_allocated_block_size_standard_pool(mem_pool_t *pool, void *addr)
 {
-    /* TO BE IMPLEMENTED */
-    printf("%s:%d: Please, implement me!\n", __FUNCTION__, __LINE__);
-    return 0;
+    return get_block_size(&((mem_std_allocated_block_t *)addr)->header);
 }
